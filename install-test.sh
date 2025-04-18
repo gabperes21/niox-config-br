@@ -5,7 +5,7 @@ DISK="/dev/nvme0n1"
 HOSTNAME="nixos"
 USERNAME="username"
 TIMEZONE="America/Sao_Paulo"
-SWAPSIZE="4G"
+SWAPSIZE="8G"
 STATEVERSION="24.11"
 
 echo "==> Limpando partições anteriores"
@@ -13,18 +13,21 @@ wipefs -af "$DISK"
 
 echo "==> Criando tabela de partição"
 parted "$DISK" -- mklabel gpt
-parted "$DISK" -- mkpart primary 512MiB 100%
 parted "$DISK" -- mkpart ESP fat32 1MiB 512MiB
-parted "$DISK" -- set 2 esp on
+parted "$DISK" -- mkpart primary linux-swap 512MiB "$SWAPSIZE"  # p2 (Swap)
+parted "$DISK" -- mkpart primary "$SWAPSIZE" 100% 
+parted "$DISK" -- set 1 esp on   
+
+echo "==> Formatando..."
+mkfs.vfat -n boot "$DISK"p1
+mkswap "$DISK"p2
+swapon "$DISK"p2
 
 echo "==> Criptografando..."
 cryptsetup --verify-passphrase -v luksFormat "$DISK"p3
 cryptsetup open "$DISK"p3 enc
 
-echo "==> Criando sistema de arquivos"
-mkfs.vfat -n boot "$DISK"p1
-mkswap "$DISK"p2
-swapon "$DISK"p2
+echo "==> Criando sistema de arquivos Btrfs"
 mkfs.btrfs /dev/mapper/enc
 
 echo "==> Criando subvolumes Btrfs"
