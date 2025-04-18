@@ -24,3 +24,7 @@ sudo nano /etc/nixos/hardware-configuration.nix
       neededForBoot = true;
     };
 ```
+
+## Referencias
+
+[Encypted Btrfs Root com Opt-in Estado em NixOS](https://mt-caret.github.io/blog/posts/2020-06-29-optin-state.html)
