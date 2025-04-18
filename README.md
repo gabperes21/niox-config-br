@@ -5,5 +5,6 @@
 ```
 git clone https://github.com/gabperes21/nixos-config-br
 cd niox-config-br
+chmod 777 install.sh
 ./install.sh
 ```
