@@ -5,6 +5,7 @@ DISK="/dev/nvme0n1"
 HOSTNAME="nixos"
 USERNAME="username"
 TIMEZONE="America/Sao_Paulo"
+KEYBOARD="br-abnt2"
 SWAPSIZE="8G"
 STATEVERSION="24.11"
 
@@ -75,6 +76,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
   networking.networkmanager.enable = true;
   
   time.timeZone = "$TIMEZONE";
+  console.keyMap = "$KEYBOARD"
   
   users.users.$USERNAME = {
     isNormalUser = true;
