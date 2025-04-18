@@ -27,18 +27,20 @@ mkfs.btrfs -L nixos /dev/mapper/cryptroot
 
 echo "==> Criando subvolumes Btrfs"
 mount /dev/mapper/cryptroot /mnt
-for subvol in @ @home @log @nix @persist @swap; do
-  btrfs subvolume create "/mnt/$subvol"
-done
+btrfs subvolume create /mnt/@
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@nix
+btrfs subvolume create /mnt/@persist
+btrfs subvolume create /mnt/@swap
 umount /mnt
 
 echo "==> Montando subvolumes"
-mount -o subvol=@ /dev/mapper/cryptroot /mnt
-for dir in home log nix persist swap; do
-  mkdir -p "/mnt/$dir"
-  mount -o subvol=@$dir /dev/mapper/cryptroot "/mnt/$dir"
-done
-mkdir -p /mnt/boot
+mount -o subvol=@,compress=zstd,noatime /dev/mapper/cryptroot /mnt
+mkdir -p /mnt/{home,nix,persist,swap,boot}
+mount -o subvol=@home,compress=zstd,noatime /dev/mapper/cryptroot /mnt/home
+mount -o subvol=@nix,compress=zstd,noatime /dev/mapper/cryptroot /mnt/nix
+mount -o subvol=@persist,compress=zstd,noatime /dev/mapper/cryptroot /mnt/persist
+mount -o subvol=@swap,compress=zstd,noatime /dev/mapper/cryptroot /mnt/swap
 mount "${DISK}p2" /mnt/boot
 
 echo "==> Criando swapfile"
@@ -62,21 +64,47 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 
   boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "usb_storage" "sd_mod" ];
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-amd" ]; # or "kvm-intel" for Intel CPUs
+  boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
 
-  fileSystems."/boot/efi" = 
-    let
-      uuid = "$(blkid -s UUID -o value ${DISK}p1)";
-    in {
-      device = "/dev/disk/by-uuid/\${uuid}";
-      fsType = "vfat";
-    };
+  fileSystems."/" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@" "compress=zstd" "noatime" ];
+  };
 
-  swapDevices = [ ];
+  fileSystems."/home" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@home" "compress=zstd" "noatime" ];
+  };
+
+  fileSystems."/nix" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@nix" "compress=zstd" "noatime" ];
+  };
+
+  fileSystems."/persist" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@persist" "compress=zstd" "noatime" ];
+  };
+
+  fileSystems."/swap" = {
+    device = "/dev/mapper/cryptroot";
+    fsType = "btrfs";
+    options = [ "subvol=@swap" "compress=zstd" "noatime" ];
+  };
+
+  fileSystems."/boot" = {
+    device = "${DISK}p2";
+    fsType = "vfat";
+  };
+
+  swapDevices = [ { device = "/swap/swapfile"; } ];
 
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
-  # or hardware.cpu.amd.updateMicrocode for Intel CPUs
 }
 EOF
 
@@ -90,41 +118,10 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  boot.initrd.luks.devices."cryptroot".device = "${DISK}p1";
-
-  fileSystems."/" = {
-    device = "/dev/mapper/cryptroot";
-    fsType = "btrfs";
-    options = [ "subvol=@" ];
+  boot.initrd.luks.devices."cryptroot" = {
+    device = "$(blkid -s UUID -o value ${DISK}p1)";
+    allowDiscards = true;
   };
-  fileSystems."/home" = {
-    device = "/dev/mapper/cryptroot";
-    fsType = "btrfs";
-    options = [ "subvol=@home" ];
-  };
-  fileSystems."/log" = {
-    device = "/dev/mapper/cryptroot";
-    fsType = "btrfs";
-    options = [ "subvol=@log" ];
-  };
-  fileSystems."/nix" = {
-    device = "/dev/mapper/cryptroot";
-    fsType = "btrfs";
-    options = [ "subvol=@nix" ];
-  };
-  fileSystems."/persist" = {
-    device = "/dev/mapper/cryptroot";
-    fsType = "btrfs";
-    options = [ "subvol=@persist" ];
-  };
-  fileSystems."/boot" = {
-    device = "${DISK}p2";
-    fsType = "vfat";
-  };
-
-  swapDevices = [ { device = "/swap/swapfile"; } ];
-
-  boot.kernelPackages = pkgs.linuxPackages_hardened;
 
   networking.hostName = "$HOSTNAME";
   time.timeZone = "$TIMEZONE";
@@ -144,4 +141,3 @@ echo "==> Instalando NixOS"
 nixos-install --no-root-password
 
 echo "==> Instalação concluída. Pronto para reiniciar."
-
