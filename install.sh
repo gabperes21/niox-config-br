@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DISK="/dev/sda"
+DISK="/dev/nvme0n1"
 HOSTNAME="nixos"
 USERNAME="usuario"
 TIMEZONE="America/Sao_Paulo"
-SWAPSIZE="4G"
+SWAPSIZE="8G"
 STATEVERSION="24.11"
 
 echo "==> Limpando partições anteriores"
-wipefs -a "$DISK"
+wipefs -af "$DISK"
 
 echo "==> Criando tabela de partição"
 parted "$DISK" -- mklabel gpt
@@ -50,8 +50,10 @@ swapon /mnt/swap/swapfile
 echo "==> Gerando configuração do sistema"
 nixos-generate-config --root /mnt
 
-echo "==> Corrigindo conflito de fileSystems no hardware-configuration.nix"
-sed -i '/fileSystems\."\/"\s*=/,/};/ s/^/#/' /mnt/etc/nixos/hardware-configuration.nix
+echo "==> Corrigindo conflitos de fileSystems no hardware-configuration.nix"
+for mount in "/" "/boot"; do
+  sed -i "/fileSystems.\"$mount\"\s*=/,/};/ s/^/#/" /mnt/etc/nixos/hardware-configuration.nix
+done
 
 echo "==> Substituindo configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF
