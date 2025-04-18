@@ -18,7 +18,7 @@ sudo nano /etc/nixos/hardware-configuration.nix
 
 ```nix
   fileSystems."/var/log" =
-    { device = "/dev/disk/by-uuid/f73c53b7-ae6c-4240-89c3-511ad918edcc";
+    { device = "/dev/disk/by-uuid/XXXXX";
       fsType = "btrfs";
       options = [ "subvol=log" "compress=zstd" "noatime" ];
       neededForBoot = true;
