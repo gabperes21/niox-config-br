@@ -8,7 +8,7 @@ cd niox-config-br
 chmod 777 install.sh
 ./install.sh
 ```
-## Adicionar prioridade no /log
+## Adicionar prioridade no /var/log
 
 Adicionar `neededForBoot = true;` para ser montado o quanto antes
 
