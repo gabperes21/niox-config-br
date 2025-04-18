@@ -50,10 +50,35 @@ swapon /mnt/swap/swapfile
 echo "==> Gerando configuração do sistema"
 nixos-generate-config --root /mnt
 
-echo "==> Corrigindo conflitos de fileSystems no hardware-configuration.nix"
-for mount in "/" "/boot"; do
-  sed -i "/fileSystems.\"$mount\"\s*=/,/};/ s/^/#/" /mnt/etc/nixos/hardware-configuration.nix
-done
+echo "==> Criando Backup hardware-configuration.nix"
+mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
+
+echo "==> Criando novo hardware-configuration.nix"
+cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
+{ config, lib, pkgs, modulesPath, ... }:
+
+{
+  imports = [ ];
+
+  boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "usb_storage" "sd_mod" ];
+  boot.initrd.kernelModules = [ ];
+  boot.kernelModules = [ "kvm-amd" ]; # or "kvm-intel" for Intel CPUs
+  boot.extraModulePackages = [ ];
+
+  fileSystems."/boot/efi" = 
+    let
+      uuid = "$(blkid -s UUID -o value ${DISK}p1)";
+    in {
+      device = "/dev/disk/by-uuid/\${uuid}";
+      fsType = "vfat";
+    };
+
+  swapDevices = [ ];
+
+  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+  # or hardware.cpu.amd.updateMicrocode for Intel CPUs
+}
+EOF
 
 echo "==> Substituindo configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF
