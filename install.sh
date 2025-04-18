@@ -2,8 +2,8 @@
 set -euo pipefail
 
 DISK="/dev/nvme0n1"
-HOSTNAME="nixos"
-USERNAME="usuario"
+HOSTNAME="sauron"
+USERNAME="gabperes"
 TIMEZONE="America/Sao_Paulo"
 SWAPSIZE="8G"
 STATEVERSION="24.11"
