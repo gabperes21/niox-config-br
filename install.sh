@@ -48,61 +48,8 @@ swapon /mnt/swap/swapfile
 echo "==> Gerando configuração do sistema"
 nixos-generate-config --root /mnt
 
-echo "==> Criando Backup hardware-configuration.nix"
-mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
-
-echo "==> Criando hardware-configuration.nix"
-cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
-{ config, lib, pkgs, modulesPath, ... }:
-
-{
-  imports = [ ];
-
-  boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "ahci" "usb_storage" "sd_mod" ];
-  boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-intel" ];
-  boot.extraModulePackages = [ ];
-
-  fileSystems."/" = {
-    device = "${DISK}p1";
-    fsType = "btrfs";
-    options = [ "subvol=@" "compress=zstd" "noatime" "ssd" "discard=async" ];
-  };
-
-  fileSystems."/home" = {
-    device = "${DISK}p1";
-    fsType = "btrfs";
-    options = [ "subvol=@home" "compress=zstd" "noatime" "ssd" "discard=async" ];
-  };
-
-  fileSystems."/nix" = {
-    device = "${DISK}p1";
-    fsType = "btrfs";
-    options = [ "subvol=@nix" "compress=zstd" "noatime" "ssd" "discard=async" ];
-  };
-
-  fileSystems."/persist" = {
-    device = "${DISK}p1";
-    fsType = "btrfs";
-    options = [ "subvol=@persist" "compress=zstd" "noatime" "ssd" "discard=async" ];
-  };
-
-  fileSystems."/swap" = {
-    device = "${DISK}p1";
-    fsType = "btrfs";
-    options = [ "subvol=@swap" ];
-  };
-
-  fileSystems."/boot" = {
-    device = "${DISK}p2";
-    fsType = "vfat";
-  };
-
-  swapDevices = [ { device = "/swap/swapfile"; } ];
-
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
-}
-EOF
+#echo "==> Criando Backup hardware-configuration.nix"
+#mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
 
 echo "==> Criando configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF
