@@ -75,8 +75,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
   networking.networkmanager.enable = true;
   
   time.timeZone = "$TIMEZONE";
-  services.xserver.enable = true;
-
+  
   users.users.$USERNAME = {
     isNormalUser = true;
     extraGroups = [ "wheel"];
