@@ -52,7 +52,10 @@ echo "==> Obtendo identificadores únicos"
 LUKS_UUID=$(blkid -s UUID -o value "${DISK}p1")
 EFI_UUID=$(blkid -s UUID -o value "${DISK}p2")
 
-echo "==> Criando hardware-configuration.nix"
+echo "==> Gerando configuração do sistema"
+nixos-generate-config --root /mnt
+
+echo "==> Criando Backup hardware-configuration.nix"
 mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
 
 echo "==> Criando novo hardware-configuration.nix"
