@@ -8,6 +8,7 @@ TIMEZONE="America/Sao_Paulo"
 SWAPSIZE="8G"
 STATEVERSION="24.11"
 
+# Limpeza e preparação do disco
 echo "==> Limpando partições anteriores"
 wipefs -af "$DISK"
 
@@ -18,12 +19,12 @@ parted "$DISK" -- mkpart ESP fat32 1MiB 512MiB
 parted "$DISK" -- set 2 esp on
 
 echo "==> Configurando LUKS"
-cryptsetup luksFormat "${DISK}p1"
+cryptsetup luksFormat --type luks2 "${DISK}p1"
 cryptsetup open "${DISK}p1" cryptroot
 
-echo "==> Criando sistema de arquivos"
-mkfs.vfat -n BOOT "${DISK}p2"
-mkfs.btrfs -L nixos /dev/mapper/cryptroot
+echo "==> Criando sistemas de arquivos"
+mkfs.vfat -F32 -n BOOT "${DISK}p2"
+mkfs.btrfs -L ROOT /dev/mapper/cryptroot
 
 echo "==> Criando subvolumes Btrfs"
 mount /dev/mapper/cryptroot /mnt
@@ -34,28 +35,24 @@ btrfs subvolume create /mnt/@persist
 btrfs subvolume create /mnt/@swap
 umount /mnt
 
-echo "==> Montando subvolumes"
-mount -o subvol=@,compress=zstd,noatime /dev/mapper/cryptroot /mnt
-mkdir -p /mnt/{home,nix,persist,swap,boot}
-mount -o subvol=@home,compress=zstd,noatime /dev/mapper/cryptroot /mnt/home
-mount -o subvol=@nix,compress=zstd,noatime /dev/mapper/cryptroot /mnt/nix
-mount -o subvol=@persist,compress=zstd,noatime /dev/mapper/cryptroot /mnt/persist
-mount -o subvol=@swap,compress=zstd,noatime /dev/mapper/cryptroot /mnt/swap
+echo "==> Montando estrutura"
+mount -o subvol=@,compress=zstd,noatime,ssd,discard=async /dev/mapper/cryptroot /mnt
+mkdir -p /mnt/{boot,home,nix,persist,swap}
+mount -o subvol=@home,compress=zstd,noatime,ssd,discard=async /dev/mapper/cryptroot /mnt/home
+mount -o subvol=@nix,compress=zstd,noatime,ssd,discard=async /dev/mapper/cryptroot /mnt/nix
+mount -o subvol=@persist,compress=zstd,noatime,ssd,discard=async /dev/mapper/cryptroot /mnt/persist
+mount -o subvol=@swap,compress=zstd,noatime,ssd,discard=async /dev/mapper/cryptroot /mnt/swap
 mount "${DISK}p2" /mnt/boot
 
-echo "==> Criando swapfile"
+echo "==> Configurando swap"
 btrfs filesystem mkswapfile --size $SWAPSIZE /mnt/swap/swapfile
-chmod 600 /mnt/swap/swapfile
-mkswap /mnt/swap/swapfile
 swapon /mnt/swap/swapfile
 
-echo "==> Gerando configuração do sistema"
-nixos-generate-config --root /mnt
+echo "==> Obtendo identificadores únicos"
+LUKS_UUID=$(blkid -s UUID -o value "${DISK}p1")
+EFI_UUID=$(blkid -s UUID -o value "${DISK}p2")
 
-echo "==> Criando Backup hardware-configuration.nix"
-mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
-
-echo "==> Criando novo hardware-configuration.nix"
+echo "==> Criando hardware-configuration.nix"
 cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 { config, lib, pkgs, modulesPath, ... }:
 
@@ -70,35 +67,35 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
   fileSystems."/" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@" "compress=zstd" "noatime" ];
+    options = [ "subvol=@" "compress=zstd" "noatime" "ssd" "discard=async" ];
   };
 
   fileSystems."/home" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@home" "compress=zstd" "noatime" ];
+    options = [ "subvol=@home" "compress=zstd" "noatime" "ssd" "discard=async" ];
   };
 
   fileSystems."/nix" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@nix" "compress=zstd" "noatime" ];
+    options = [ "subvol=@nix" "compress=zstd" "noatime" "ssd" "discard=async" ];
   };
 
   fileSystems."/persist" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@persist" "compress=zstd" "noatime" ];
+    options = [ "subvol=@persist" "compress=zstd" "noatime" "ssd" "discard=async" ];
   };
 
   fileSystems."/swap" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@swap" "compress=zstd" "noatime" ];
+    options = [ "subvol=@swap" ];
   };
 
   fileSystems."/boot" = {
-    device = "${DISK}p2";
+    device = "/dev/disk/by-uuid/${EFI_UUID}";
     fsType = "vfat";
   };
 
@@ -108,9 +105,6 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 }
 EOF
 
-echo "==> Recuperando UUID da partição LUKS"
-CRYPTUUID=$(blkid -s UUID -o value ${DISK}p1)
-
 echo "==> Criando configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF
 { config, pkgs, ... }:
@@ -118,29 +112,37 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
 {
   imports = [ ./hardware-configuration.nix ];
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader = {
+    systemd-boot.enable = true;
+    efi = {
+      canTouchEfiVariables = true;
+      efiSysMountPoint = "/boot";
+    };
+  };
 
   boot.initrd.luks.devices."cryptroot" = {
-    device = "/dev/disk/by-uuid/$CRYPTUUID";
+    device = "/dev/disk/by-uuid/${LUKS_UUID}";
     allowDiscards = true;
   };
 
-  networking.hostName = "$HOSTNAME";
-  time.timeZone = "$TIMEZONE";
+  boot.supportedFilesystems = [ "btrfs" ];
 
-  users.users.$USERNAME = {
+  networking.hostName = "${HOSTNAME}";
+  time.timeZone = "${TIMEZONE}";
+
+  users.users.${USERNAME} = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ];
+    extraGroups = [ "wheel" "networkmanager" ];
     initialPassword = "nixos";
   };
 
   services.openssh.enable = true;
-  system.stateVersion = "$STATEVERSION";
+  system.stateVersion = "${STATEVERSION}";
 }
 EOF
 
 echo "==> Instalando NixOS"
 nixos-install --no-root-password
 
-echo "==> Instalação concluída. Pronto para reiniciar."
+echo "==> Instalação concluída com sucesso!"
+echo "==> Execute 'reboot' para reiniciar o sistema"
