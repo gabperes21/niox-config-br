@@ -2,10 +2,10 @@
 set -euo pipefail
 
 DISK="/dev/nvme0n1"
-HOSTNAME="sauron"
-USERNAME="gabperes"
+HOSTNAME="nixos"
+USERNAME="username"
 TIMEZONE="America/Sao_Paulo"
-SWAPSIZE="8G"
+SWAPSIZE="4G"
 STATEVERSION="24.11"
 
 echo "==> Limpando partições anteriores"
@@ -47,6 +47,9 @@ swapon /mnt/swap/swapfile
 
 echo "==> Gerando configuração do sistema"
 nixos-generate-config --root /mnt
+
+#echo "==> Criando Backup hardware-configuration.nix"
+#mv /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/hardware-configuration.nix.bak
 
 echo "==> Criando configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF

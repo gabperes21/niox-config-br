@@ -2,10 +2,10 @@
 set -euo pipefail
 
 DISK="/dev/nvme0n1"
-HOSTNAME="sauron"
-USERNAME="gabperes"
+HOSTNAME="nixos"
+USERNAME="username"
 TIMEZONE="America/Sao_Paulo"
-SWAPSIZE="8G"
+SWAPSIZE="4G"
 STATEVERSION="24.11"
 
 echo "==> Limpando partições anteriores"
