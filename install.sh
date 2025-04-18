@@ -76,7 +76,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
   networking.networkmanager.enable = true;
   
   time.timeZone = "$TIMEZONE";
-  console.keyMap = "$KEYBOARD"
+  console.keyMap = "$KEYBOARD";
   
   users.users.$USERNAME = {
     isNormalUser = true;
