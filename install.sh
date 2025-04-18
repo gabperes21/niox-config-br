@@ -41,6 +41,8 @@ mount -o subvol=@persist,compress=zstd,noatime,ssd,discard=async "${DISK}p1" /mn
 mount -o subvol=@swap,compress=zstd,noatime,ssd,discard=async "${DISK}p1" /mnt/swap
 mount "${DISK}p2" /mnt/boot
 
+mkdir -p /mnt/nix/store
+
 echo "==> Criando swapfile"
 btrfs filesystem mkswapfile --size $SWAPSIZE /mnt/swap/swapfile
 swapon /mnt/swap/swapfile
