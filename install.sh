@@ -6,7 +6,7 @@ HOSTNAME="nixos"
 USERNAME="usuario"
 TIMEZONE="America/Sao_Paulo"
 SWAPSIZE="4G"
-STATEVERSION="24.05"
+STATEVERSION="24.11"
 
 echo "==> Limpando partições anteriores"
 wipefs -a "$DISK"
@@ -18,11 +18,11 @@ parted "$DISK" -- mkpart ESP fat32 1MiB 512MiB
 parted "$DISK" -- set 2 esp on
 
 echo "==> Configurando LUKS"
-cryptsetup luksFormat "${DISK}1"
-cryptsetup open "${DISK}1" cryptroot
+cryptsetup luksFormat "${DISK}p1"
+cryptsetup open "${DISK}p1" cryptroot
 
 echo "==> Criando sistema de arquivos"
-mkfs.vfat -n BOOT "${DISK}2"
+mkfs.vfat -n BOOT "${DISK}p2"
 mkfs.btrfs -L nixos /dev/mapper/cryptroot
 
 echo "==> Criando subvolumes Btrfs"
@@ -39,7 +39,7 @@ for dir in home log nix persist swap; do
   mount -o subvol=@$dir /dev/mapper/cryptroot "/mnt/$dir"
 done
 mkdir -p /mnt/boot
-mount "${DISK}2" /mnt/boot
+mount "${DISK}p2" /mnt/boot
 
 echo "==> Criando swapfile"
 btrfs filesystem mkswapfile --size $SWAPSIZE /mnt/swap/swapfile
@@ -49,6 +49,9 @@ swapon /mnt/swap/swapfile
 
 echo "==> Gerando configuração do sistema"
 nixos-generate-config --root /mnt
+
+echo "==> Corrigindo conflito de fileSystems no hardware-configuration.nix"
+sed -i '/fileSystems\."\/"\s*=/,/};/ s/^/#/' /mnt/etc/nixos/hardware-configuration.nix
 
 echo "==> Substituindo configuration.nix"
 cat > /mnt/etc/nixos/configuration.nix <<EOF
@@ -60,7 +63,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  boot.initrd.luks.devices."cryptroot".device = "${DISK}1";
+  boot.initrd.luks.devices."cryptroot".device = "${DISK}p1";
 
   fileSystems."/" = {
     device = "/dev/mapper/cryptroot";
@@ -88,7 +91,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
     options = [ "subvol=@persist" ];
   };
   fileSystems."/boot" = {
-    device = "${DISK}2";
+    device = "${DISK}p2";
     fsType = "vfat";
   };
 
