@@ -1,6 +1,6 @@
 
 
-# Niox Btrfs + LUKS PT-BR
+# Nixos Btrfs + LUKS PT-BR
 # Intalar via SH
 ```
 git clone https://github.com/gabperes21/niox-config-br
