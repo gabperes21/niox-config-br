@@ -25,6 +25,11 @@ sudo nano /etc/nixos/hardware-configuration.nix
     };
 ```
 
+```
+sudo nix flake update --flake /etc/nixos; and sudo nixos-rebuild switch --flake /etc/nixos#bilbo --upgrade
+```
+
+
 ## Referencias
 
 [Encypted Btrfs Root com Opt-in Estado em NixOS](https://mt-caret.github.io/blog/posts/2020-06-29-optin-state.html)
