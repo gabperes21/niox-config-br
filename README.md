@@ -25,6 +25,7 @@ sudo nano /etc/nixos/hardware-configuration.nix
     };
 ```
 
+## Flake
 ```
 sudo nix flake update --flake /etc/nixos; and sudo nixos-rebuild switch --flake /etc/nixos#bilbo --upgrade
 ```
